@@ -30,7 +30,12 @@ def split_crosscheck_groups(data_set, num_folds):
         for t_i in range(false_per_fold):
             indexes_per_fold[i].append(false_samples.pop(random.randrange(len(false_samples))))
 
-    return indexes_per_fold
+    folds = []
+    for i in range(num_folds):
+        indexes = indexes_per_fold[i]
+        folds.append((X[indexes], list(y[indexes])))
+
+    return folds
 
 
 Sample = namedtuple('Sample', ['features', 'label'])
@@ -61,4 +66,5 @@ class knn_factory(abstract_classifier_factory):
 
 if __name__ == '__main__':
     data_set = load_data()
-    split_crosscheck_groups(data_set, 3)
+    folds = split_crosscheck_groups(data_set, 3)
+    print('a')
