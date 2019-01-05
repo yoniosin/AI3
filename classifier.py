@@ -3,6 +3,7 @@ from collections import Counter, namedtuple
 import numpy as np
 import heapq
 import random
+import pickle
 
 
 def euclidain_distance(vec1, vec2):
@@ -30,12 +31,12 @@ def split_crosscheck_groups(data_set, num_folds):
         for t_i in range(false_per_fold):
             indexes_per_fold[i].append(false_samples.pop(random.randrange(len(false_samples))))
 
-    folds = []
     for i in range(num_folds):
         indexes = indexes_per_fold[i]
-        folds.append((X[indexes], list(y[indexes])))
+        fold = (X[indexes], list(y[indexes]))
 
-    return folds
+        with open('ecg_fold' + str(i) + '.data', 'wb') as f:
+            pickle.dump(fold, f)
 
 
 Sample = namedtuple('Sample', ['features', 'label'])
@@ -66,5 +67,5 @@ class knn_factory(abstract_classifier_factory):
 
 if __name__ == '__main__':
     data_set = load_data()
-    folds = split_crosscheck_groups(data_set, 3)
+    split_crosscheck_groups(data_set, 3)
     print('a')
