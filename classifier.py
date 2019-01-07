@@ -8,7 +8,8 @@ import sklearn
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 from mpl_toolkits.mplot3d import Axes3D
-
+from functools import reduce
+import csv
 
 
 def euclidain_distance(vec1, vec2):
@@ -43,9 +44,11 @@ def split_crosscheck_groups(data_set, num_folds):
         with open('ecg_fold' + str(i) + '.data', 'wb') as f:
             pickle.dump(fold, f)
 
+
 def load_k_fold_data(i):
     with open('ecg_fold' + str(i) + '.data', 'rb') as f:
         return pickle.load(f)
+
 
 Sample = namedtuple('Sample', ['features', 'label'])
 
@@ -88,12 +91,54 @@ def apply_PCA(data_set):
     ax.scatter(X[:, 0], X[:, 1], X[:, 2], c=Y)
 
 
-if __name__ == '__main__':
-    data_set = load_data()
+def evaluate(classifier_factory: abstract_classifier_factory, k):
+    train_idx = list(range(k))
+    test_idx = train_idx.pop(np.random.choice(train_idx))
+    train_data = np.empty([0])
+    train_labels = []
 
-    # split_crosscheck_groups(data_set, 3)
+    train_folds = [load_k_fold_data(idx) for idx in train_idx]
+    train_data, train_labels = reduce(lambda a, b: (np.concatenate(a[0], b[0]), np.concatenate(a[1], b[1])),
+                                      train_folds)
+
+    classifier: abstract_classifier = classifier_factory.train(train_data, train_labels)
+
+    test_data, test_labels = load_k_fold_data(test_idx)
+    N = len(test_labels)
+    accuracy = 0
+    error = 0
+    for sample, label in zip(test_data, test_labels):
+        if classifier.classify(sample) == label:
+            accuracy += 1
+        else:
+            error += 1
+
+    return accuracy / N, error / N
+
+
+def compare_k(k_vec):
+    _res = {}
+    for k_val in k_vec:
+        _res[k_val] = evaluate(knn_factory(k_val), 2)
+
+    return _res
+
+
+def print_csv(res_dict):
+    csv = open('experiment6.csv', "w")
+    for key in res_dict.keys():
+        row = str(key) + "," + str(res_dict[key][0]) + "," + str(res_dict[key][1]) + '\n'
+
+        csv.write(row)
+
+
+if __name__ == '__main__':
+    # data_set = load_data()
+
+    # split_crosscheck_groups(data_set, 2)
     # load_k_fold_data(1)
 
-
+    res = compare_k([1, 3, 5, 7, 13])
+    print_csv(res)
 
     print('a')
