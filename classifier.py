@@ -4,6 +4,11 @@ import numpy as np
 import heapq
 import random
 import pickle
+import sklearn
+import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
+from mpl_toolkits.mplot3d import Axes3D
+
 
 
 def euclidain_distance(vec1, vec2):
@@ -38,6 +43,9 @@ def split_crosscheck_groups(data_set, num_folds):
         with open('ecg_fold' + str(i) + '.data', 'wb') as f:
             pickle.dump(fold, f)
 
+def load_k_fold_data(i):
+    with open('ecg_fold' + str(i) + '.data', 'rb') as f:
+        return pickle.load(f)
 
 Sample = namedtuple('Sample', ['features', 'label'])
 
@@ -65,7 +73,27 @@ class knn_factory(abstract_classifier_factory):
         return knn_classifier(self.k, data, labels)
 
 
+def apply_PCA(data_set):
+    Y = data_set[1]
+    X = data_set[0]
+    X_scale = (X - X.mean(0)) / (np.var(X, axis=0) ** 0.5)
+    data_scale = sklearn.preprocessing.scale(data_set[0])
+
+    pca = PCA(n_components=3)
+    pca.fit(data_scale)
+    X = pca.transform(data_scale)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(X[:, 0], X[:, 1], X[:, 2], c=Y)
+
+
 if __name__ == '__main__':
     data_set = load_data()
-    split_crosscheck_groups(data_set, 3)
+
+    # split_crosscheck_groups(data_set, 3)
+    # load_k_fold_data(1)
+
+
+
     print('a')
