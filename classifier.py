@@ -14,8 +14,11 @@ from functools import reduce
 import csv
 
 
-def euclidain_distance(vec1, vec2):
-    return np.linalg.norm(vec1 - vec2)
+def euclidain_distance(vec1, vec2, weights=None):
+    if weights is None:
+        return np.linalg.norm(vec1 - vec2)
+
+    return ((vec1 - vec2) ** 2) @ weights
 
 
 def split_crosscheck_groups(data_set, num_folds, suffix=''):
@@ -61,15 +64,16 @@ def normalize_data(data):
 
 
 class knn_classifier(abstract_classifier):
-    def __init__(self, k, data, labels):
+    def __init__(self, k, data, labels, weights):
         self.k = k
         self.normalizer = Normalizer(data)
         self.data = self.normalizer.transform(data)
         self.labels = labels
+        self.weights = weights
 
     def classify(self, features):
         norm_features = self.normalizer.transform(features)
-        dist_heap = [Sample(euclidain_distance(sample, norm_features), label) for sample, label in
+        dist_heap = [Sample(euclidain_distance(sample, norm_features, self.weights), label) for sample, label in
                      zip(self.data, self.labels)]
         heapq.heapify(dist_heap)
         nearest = [heapq.heappop(dist_heap).label for _ in range(self.k)]
@@ -81,8 +85,8 @@ class knn_factory(abstract_classifier_factory):
     def __init__(self, k):
         self.k = k
 
-    def train(self, data, labels):
-        return knn_classifier(self.k, data, labels)
+    def train(self, data, labels, weights=None):
+        return knn_classifier(self.k, data, labels, weights)
 
 
 class tree_factory(abstract_classifier_factory):
@@ -92,6 +96,7 @@ class tree_factory(abstract_classifier_factory):
     def train(self, data, labels):
         return tree_classifier(self.criterion, data, labels)
 
+
 class tree_classifier(abstract_classifier):
     def __init__(self, criterion, data, labels):
         self.tree = DecisionTreeClassifier(criterion=criterion)
@@ -100,9 +105,11 @@ class tree_classifier(abstract_classifier):
     def classify(self, features):
         return self.tree.predict(X=features)
 
+
 class perceptron_factory(abstract_classifier_factory):
     def train(self, data, labels):
         return perceptron_classifier(data, labels)
+
 
 class perceptron_classifier(abstract_classifier):
     def __init__(self, data, labels):
@@ -129,7 +136,8 @@ def apply_PCA(data_set, n_components):
     # ax = fig.add_subplot(111, projection='3d')
     # ax.scatter(X[:, 0], X[:, 1], X[:, 2], c=Y)
 
-    return projected_X
+    return projected_X, Y
+
 
 def evaluate(classifier_factory: abstract_classifier_factory, k, suffix=''):
     test_folds = [load_k_fold_data(idx, suffix) for idx in range(k)]
@@ -142,28 +150,28 @@ def evaluate(classifier_factory: abstract_classifier_factory, k, suffix=''):
                                           test_folds[1:])
         classifier: abstract_classifier = classifier_factory.train(train_data, train_labels)
         val_data, val_labels = test_folds[0]
-        evaluate_tree(classifier.tree, val_data[0].reshape(-1,1))
+        evaluate_tree(classifier.tree, val_data[0].reshape(-1, 1))
         N += len(val_labels)
         right_decision_path = []
         wrong_decision_path = []
         for sample, label in zip(val_data, val_labels):
             if classifier.classify(sample.reshape(1, -1)) == label:
-                right_decision_path.append(classifier.tree.decision_path(sample.reshape(1, -1)).indices)
+                decision_path = right_decision_path
                 accuracy += 1
             else:
-                wrong_decision_path.append(classifier.tree.decision_path(sample.reshape(1, -1)).indices)
+                decision_path = wrong_decision_path
                 error += 1
-
+            decision_path.append(classifier.tree.decision_path(sample.reshape(1, -1)).indices)
 
         test_folds.append(test_folds.pop(0))
 
     return accuracy / N, error / N
 
 
-def compare_k(k_vec):
+def compare_k(k_vec, factory):
     _res = {}
     for k_val in k_vec:
-        _res[k_val] = (evaluate(knn_factory(k_val), 2))
+        _res[k_val] = (evaluate(factory(k_val), 2))
 
     return _res
 
@@ -203,7 +211,7 @@ def section3():
 def section6():
     data_set = load_data()
     k_list = [1, 3, 5, 7, 13]
-    res = compare_k(k_list)
+    res = compare_k(k_list, knn_factory)
     print_csv(res, '6')
     plot_results(res)
 
@@ -222,12 +230,11 @@ def section7():
 
 def part_c():
     tree_classifier = tree_factory('entropy')
-    res = (evaluate(tree_classifier, 2))
+    res = evaluate(tree_classifier, 2)
     print('a')
 
 
 if __name__ == '__main__':
-
     # section3()
     # section6()
     # section7()
